@@ -1144,7 +1144,6 @@ footer{background:var(--ink);color:var(--on-dark);padding-block:clamp(80px,12vh,
   // phones: lift Ramya's text out of the clipped circle so iOS Safari always paints it
   const phoneMeet = matchMedia('(max-width: 760px)').matches;
   if (phoneMeet) { const mt = $('#meet .mtext'); if (mt) { mt.classList.add('out'); stage.appendChild(mt); } }
-  const mo = phoneMeet ? .3 : 0;
   const htl = G.timeline({ defaults: { ease: 'none' } });
   htl.fromTo(stage, { '--cut': 1 }, { '--cut': 0, duration: 1, ...nr }, 0)
     .fromTo(stage, { '--sr': () => geo.sr + 'px', '--cy': () => geo.hy + 'px' }, { '--sr': () => cover() * .6 + 'px', '--cy': () => stage.clientHeight / 2 + 'px', duration: 3, ease: 'power2.in', ...nr }, 0)
@@ -1160,16 +1159,27 @@ footer{background:var(--ink);color:var(--on-dark);padding-block:clamp(80px,12vh,
     .to('#hline', { y: () => -stage.clientHeight * .12, opacity: 0, duration: .6, ease: 'power2.in' }, 4.4)
     .fromTo('#meet', { '--mr': '0px', '--my': '62%' }, { '--mr': () => cover() * .6 + 'px', '--my': '50%', duration: 1.8, ease: 'power3.inOut', ...nr }, 4.8)
     .fromTo('#meet', { '--ms': 1.22 }, { '--ms': 1, duration: 2.6, ease: 'power2.out', ...nr }, 4.8)
-    .from('.mtext .k', { opacity: 0, y: 20, duration: .5, ease: 'power3.out' }, 5.3 + mo)
-    .from('.mtext .ln > span', { yPercent: 110, duration: .8, ease: 'power3.out' }, 5.35 + mo)
-    .from('.mtext .role, .mtext p', { opacity: 0, y: 26, duration: .7, stagger: .12, ease: 'power3.out' }, 5.6 + mo)
-    .from('.mtext li', { opacity: 0, y: 14, duration: .45, stagger: .06, ease: 'power3.out' }, 5.9 + mo)
-    .from('.mtext a', { opacity: 0, duration: .4 }, 6.2 + mo)
-    .to({}, { duration: .8 })
-    .to({}, { duration: 1 });
+    .to({}, { duration: 1.8 });
+  // Ramya's text: scrubbed on desktop; on phones it plays on its own once the photo opens,
+  // so a fast swipe or a lagging scrub can never leave the photo without her name.
+  const mtl = phoneMeet ? G.timeline({ paused: true }) : htl;
+  const m0 = phoneMeet ? 0 : 5.3;
+  mtl.fromTo('.mtext .k', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: .5, ease: 'power3.out' }, m0)
+    .fromTo('.mtext .ln > span', { yPercent: 110 }, { yPercent: 0, duration: .8, ease: 'power3.out' }, m0 + .05)
+    .fromTo('.mtext .role, .mtext p', { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: .7, stagger: .12, ease: 'power3.out' }, m0 + .3)
+    .fromTo('.mtext li', { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: .45, stagger: .06, ease: 'power3.out' }, m0 + .6)
+    .fromTo('.mtext a', { opacity: 0 }, { opacity: 1, duration: .4 }, m0 + .9);
+  let meetOn = false;
+  const meetCheck = (p) => {
+    if (!phoneMeet) return;
+    const t = p * htl.duration();
+    if (t > 5.2 && !meetOn) { meetOn = true; mtl.timeScale(1).play(); }
+    else if (t < 4.6 && meetOn) { meetOn = false; mtl.timeScale(1.8).reverse(); }
+  };
   ST.create({ trigger: stage, start: 'top top', end: () => '+=' + innerHeight * 3.6, pin: true, scrub: 1, animation: htl, invalidateOnRefresh: true,
     onRefreshInit: () => layoutHero(),
-    onUpdate: s => setNav(s.progress > .3), onLeave: () => setNav(false), onEnterBack: () => setNav(true) });
+    onUpdate: s => { setNav(s.progress > .3); meetCheck(s.progress); },
+    onLeave: () => { setNav(false); if (phoneMeet) { meetOn = true; mtl.progress(1); } }, onEnterBack: () => setNav(true) });
 
   /* ---------- manifesto: words wake up ---------- */
   const mani = $('#mani');
